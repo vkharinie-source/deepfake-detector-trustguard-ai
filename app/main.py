@@ -1,4 +1,4 @@
-﻿
+﻿```python
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -29,11 +29,17 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        # Local frontend
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+
+        # Deployed backend
         "https://deepfake-detector-trustguard-ai-1.onrender.com",
+
+        # Deployed frontend
+        "https://good-jq3j.onrender.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -91,3 +97,4 @@ def health():
         "model": "MobileNetV2",
         "version": "2.0.0",
     }
+```
