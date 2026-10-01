@@ -6,10 +6,17 @@ import numpy as np
 import tensorflow as tf
 from PIL import Image, ImageOps
 
+
 ROOT = Path(__file__).resolve().parents[2]
 
-MODEL_PATH = ROOT / "model" / "deepfake_mobilenetv2_best.keras"
+# V3 production model
+MODEL_PATH = ROOT / "model" / "deepfake_mobilenetv2_v3_best.keras"
+
 IMAGE_SIZE = (224, 224)
+
+# Threshold selected using V3 validation data
+REAL_THRESHOLD = 0.9941
+
 
 print(f"Loading model: {MODEL_PATH}")
 
@@ -21,7 +28,7 @@ model = tf.keras.models.load_model(
     compile=False
 )
 
-print("MobileNetV2 model loaded successfully.")
+print("MobileNetV2 V3 model loaded successfully.")
 
 
 def load_image(image_source):
@@ -33,10 +40,14 @@ def load_image(image_source):
 
     if isinstance(image_source, bytes):
         image = Image.open(io.BytesIO(image_source))
+
     elif isinstance(image_source, (str, Path)):
         image = Image.open(image_source)
+
     else:
-        raise TypeError("image_source must be bytes or a file path")
+        raise TypeError(
+            "image_source must be bytes or a file path"
+        )
 
     image = ImageOps.exif_transpose(image)
     image = image.convert("RGB")
@@ -51,7 +62,10 @@ def detect_faces(image):
     """
 
     try:
-        cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+        cascade_path = (
+            cv2.data.haarcascades
+            + "haarcascade_frontalface_default.xml"
+        )
 
         if not Path(cascade_path).exists():
             return 0
@@ -61,7 +75,9 @@ def detect_faces(image):
             cv2.COLOR_RGB2GRAY
         )
 
-        face_cascade = cv2.CascadeClassifier(cascade_path)
+        face_cascade = cv2.CascadeClassifier(
+            cascade_path
+        )
 
         faces = face_cascade.detectMultiScale(
             gray,
@@ -78,7 +94,7 @@ def detect_faces(image):
 def preprocess_image(image):
     """
     Resize image for MobileNetV2.
-    Model already contains MobileNetV2 preprocessing.
+    The trained model already contains its preprocessing.
     """
 
     image = image.resize(IMAGE_SIZE)
@@ -98,7 +114,7 @@ def preprocess_image(image):
 
 def predict_image(image_source):
     """
-    Predict REAL or FAKE.
+    Predict REAL or FAKE using the V3 model.
     """
 
     image = load_image(image_source)
@@ -109,19 +125,20 @@ def predict_image(image_source):
 
     processed_image = preprocess_image(image)
 
-    prediction = float(
+    raw_score = float(
         model.predict(
             processed_image,
             verbose=0
         )[0][0]
     )
 
-    if prediction >= 0.5:
+    # V3 threshold
+    if raw_score >= REAL_THRESHOLD:
         label = "REAL"
-        confidence = prediction
+        confidence = raw_score
     else:
         label = "FAKE"
-        confidence = 1 - prediction
+        confidence = 1 - raw_score
 
     confidence_percent = round(
         confidence * 100,
@@ -130,15 +147,18 @@ def predict_image(image_source):
 
     if confidence_percent >= 90:
         confidence_level = "HIGH"
+
     elif confidence_percent >= 70:
         confidence_level = "MEDIUM"
+
     else:
         confidence_level = "LOW"
 
     return {
         "prediction": label,
         "confidence": confidence_percent,
-        "raw_score": round(prediction, 6),
+        "raw_score": round(raw_score, 6),
+        "threshold": REAL_THRESHOLD,
         "faces_detected": faces_detected,
         "original_image_size": {
             "width": original_width,
