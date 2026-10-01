@@ -2,7 +2,7 @@
 
 const BASE_URL =
   import.meta.env.VITE_API_URL ||
-  "https://deepfake-detector-trustguard-ai.onrender.com";
+  "https://deepfake-detector-trustguard-ai-1.onrender.com";
 
 const getHeaders = (isJson = true) => {
   const headers = {};
