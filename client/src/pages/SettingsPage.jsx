@@ -1,4 +1,3 @@
-```jsx
 import React from 'react';
 import {
   Settings as SettingsIcon,
@@ -44,6 +43,7 @@ function SettingsPage({ currentUser }) {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            flexShrink: 0,
           }}
         >
           <SettingsIcon size={22} color="#818CF8" />
@@ -65,7 +65,7 @@ function SettingsPage({ currentUser }) {
             style={{
               fontSize: '0.8rem',
               color: '#9CA3AF',
-              margin: '0.15rem 0 0 0',
+              margin: '0.15rem 0 0',
             }}
           >
             Platform configuration and account preferences.
@@ -261,7 +261,7 @@ function SettingsPage({ currentUser }) {
               gap: '0.5rem',
             }}
           >
-            <div>
+            <div style={{ minWidth: 0 }}>
               <p
                 style={{
                   fontSize: '0.875rem',
@@ -277,7 +277,8 @@ function SettingsPage({ currentUser }) {
                 style={{
                   fontSize: '0.775rem',
                   color: '#6B7280',
-                  margin: '0.15rem 0 0 0',
+                  margin: '0.15rem 0 0',
+                  wordBreak: 'break-word',
                 }}
               >
                 {item.value}
@@ -293,6 +294,7 @@ function SettingsPage({ currentUser }) {
                 backgroundColor: 'rgba(16, 185, 129, 0.15)',
                 color: '#34D399',
                 border: '1px solid rgba(16, 185, 129, 0.3)',
+                whiteSpace: 'nowrap',
               }}
             >
               {item.status}
@@ -335,7 +337,10 @@ function SettingsPage({ currentUser }) {
         </div>
 
         {[
-          { name: 'DeepFake Image', model: 'MobileNetV2 V3' },
+          {
+            name: 'DeepFake Image',
+            model: 'MobileNetV2 V3',
+          },
           {
             name: 'Website Analysis',
             model: 'Rule-based + ML Classifier',
@@ -380,7 +385,7 @@ function SettingsPage({ currentUser }) {
               gap: '0.5rem',
             }}
           >
-            <div>
+            <div style={{ minWidth: 0 }}>
               <p
                 style={{
                   fontSize: '0.875rem',
@@ -396,7 +401,8 @@ function SettingsPage({ currentUser }) {
                 style={{
                   fontSize: '0.775rem',
                   color: '#6B7280',
-                  margin: '0.15rem 0 0 0',
+                  margin: '0.15rem 0 0',
+                  wordBreak: 'break-word',
                 }}
               >
                 {mod.model}
@@ -412,6 +418,7 @@ function SettingsPage({ currentUser }) {
                 backgroundColor: 'rgba(16, 185, 129, 0.15)',
                 color: '#34D399',
                 border: '1px solid rgba(16, 185, 129, 0.3)',
+                whiteSpace: 'nowrap',
               }}
             >
               Online
@@ -461,13 +468,22 @@ function SettingsPage({ currentUser }) {
           }}
         >
           {[
-            { label: 'Platform', value: 'TrustGuard AI' },
-            { label: 'Version', value: '2.0.0' },
-            { label: 'Backend', value: 'FastAPI + Python' },
+            {
+              label: 'Platform',
+              value: 'TrustGuard AI',
+            },
+            {
+              label: 'Version',
+              value: '2.0.0',
+            },
+            {
+              label: 'Backend',
+              value: 'FastAPI + Python',
+            },
             {
               label: 'API Endpoint',
               value:
-                'https://deepfake-detector-trustguard-ai-1.onrender.com',
+                'https://deepfake-detector-trustguard-ai.onrender.com',
             },
           ].map((info, idx) => (
             <div
@@ -496,7 +512,7 @@ function SettingsPage({ currentUser }) {
                   fontSize: '0.875rem',
                   fontWeight: '600',
                   color: '#E5E7EB',
-                  margin: '0.25rem 0 0 0',
+                  margin: '0.25rem 0 0',
                   wordBreak: 'break-word',
                 }}
               >
@@ -511,4 +527,3 @@ function SettingsPage({ currentUser }) {
 }
 
 export default SettingsPage;
-```
