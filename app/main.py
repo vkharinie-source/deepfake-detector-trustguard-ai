@@ -1,5 +1,4 @@
-﻿```python
-from fastapi import FastAPI
+﻿from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routes.prediction import router as prediction_router
@@ -35,11 +34,8 @@ app.add_middleware(
         "http://localhost:3000",
         "http://127.0.0.1:3000",
 
-        # Deployed backend
+        # Deployed TrustGuard frontend
         "https://deepfake-detector-trustguard-ai-1.onrender.com",
-
-        # Deployed frontend
-        "https://good-jq3j.onrender.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -97,4 +93,3 @@ def health():
         "model": "MobileNetV2",
         "version": "2.0.0",
     }
-```

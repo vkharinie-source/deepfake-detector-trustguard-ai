@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Shield, Eye, EyeOff, ArrowRight, AlertTriangle } from '../components/Icons';
 import { api } from '../services/api';
 
-export default function Register({ setCurrentUser }) {
+export const Register = ({ setCurrentUser }) => {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -239,4 +239,6 @@ export default function Register({ setCurrentUser }) {
       </div>
     </div>
   );
-}
+};
+
+export default Register;

@@ -563,8 +563,8 @@ export default function VideoAnalysis() {
                 {!file ? (
                     <div
                         className={`video-dropzone${dragOver ? ' is-dragging' : ''}`}
-                        onClick={() => inputRef.current?.click()}
-                        onDragOver={event => { event.preventDefault(); setDragOver(true); }}
+                        onClick={() => { setError(''); inputRef.current?.click(); }}
+                        onDragOver={event => { event.preventDefault(); setDragOver(true); setError(''); }}
                         onDragLeave={() => setDragOver(false)}
                         onDrop={event => { event.preventDefault(); setDragOver(false); handleFileSelect(event.dataTransfer.files?.[0]); }}
                     >
@@ -619,7 +619,17 @@ export default function VideoAnalysis() {
                     </div>
                 )}
 
-                {error && <div className="video-error" role="alert"><AlertTriangle size={16} />{error}</div>}
+                {error && (
+                    <div className="video-error" role="alert" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><AlertTriangle size={16} />{error}</span>
+                        <button
+                            type="button"
+                            aria-label="Dismiss error"
+                            onClick={() => setError('')}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: '0 2px', fontSize: '16px', lineHeight: 1, opacity: 0.7 }}
+                        >✕</button>
+                    </div>
+                )}
             </section>
 
             {loading && (
