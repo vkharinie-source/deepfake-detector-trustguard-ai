@@ -51,6 +51,7 @@ export const api = {
     const candidateEndpoints = [
       BASE_URL + "/api/auth/login",
       BASE_URL + "/auth/login",
+      BASE_URL + "/login",
       DEPLOYED_BACKEND_URL + "/api/auth/login",
     ];
     const endpoints = [...new Set(candidateEndpoints)];
@@ -85,10 +86,11 @@ export const api = {
           if (res.status === 404 && url !== endpoints[endpoints.length - 1]) {
             continue;
           }
+          const msg = data.detail || data.message;
           throw new Error(
-            data.detail ||
-            data.message ||
-            (res.status === 401 ? "Invalid email or password." : "Login failed.")
+            msg && msg !== "Not Found"
+              ? msg
+              : (res.status === 401 ? "Invalid email or password." : "Login failed. Please check credentials.")
           );
         }
 
@@ -118,6 +120,7 @@ export const api = {
     const candidateEndpoints = [
       BASE_URL + "/api/auth/register",
       BASE_URL + "/auth/register",
+      BASE_URL + "/register",
       DEPLOYED_BACKEND_URL + "/api/auth/register",
     ];
     const endpoints = [...new Set(candidateEndpoints)];
@@ -156,10 +159,19 @@ export const api = {
           if (res.status === 404 && url !== endpoints[endpoints.length - 1]) {
             continue;
           }
+          const msg = data.detail || data.message;
           throw new Error(
-            data.detail ||
-            data.message ||
-            (res.status === 404 ? "Registration service not reachable." : "Registration failed.")
+            msg && msg !== "Not Found"
+              ? msg
+              : (res.status === 404 ? "Registration service not reachable." : "Registration failed.")
+          );
+        }
+
+        if (data.token) {
+          localStorage.setItem("trustguard_token", data.token);
+          localStorage.setItem(
+            "trustguard_user",
+            JSON.stringify(data.user || { full_name: fullName, email: email })
           );
         }
 
@@ -177,40 +189,57 @@ export const api = {
   // =========================================================
 
   predictImage: async (file) => {
-    const formData = new FormData();
-    formData.append("file", file);
-
-    let res = await fetch(
+    const endpoints = [
       BASE_URL + "/predict",
-      {
-        method: "POST",
-        body: formData
-      }
-    );
+      BASE_URL + "/api/predict/image",
+      DEPLOYED_BACKEND_URL + "/predict",
+      DEPLOYED_BACKEND_URL + "/api/predict/image",
+    ];
+    const uniqueEndpoints = [...new Set(endpoints)];
 
-    if (!res.ok && res.status === 404) {
-      const fallbackFormData = new FormData();
-      fallbackFormData.append("file", file);
-      res = await fetch(
-        BASE_URL + "/api/predict/image",
-        {
+    let lastError = null;
+
+    for (const url of uniqueEndpoints) {
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const res = await fetch(url, {
           method: "POST",
-          body: fallbackFormData
+          body: formData,
+        });
+
+        let data = {};
+        const contentType = res.headers.get("content-type") || "";
+        if (contentType.includes("application/json")) {
+          data = await res.json();
+        } else {
+          const text = await res.text();
+          try {
+            data = JSON.parse(text);
+          } catch {
+            data = { detail: res.ok ? "Success" : text || `HTTP ${res.status}` };
+          }
         }
-      );
+
+        if (!res.ok) {
+          if (res.status === 404 && url !== uniqueEndpoints[uniqueEndpoints.length - 1]) {
+            continue;
+          }
+          throw new Error(
+            data.detail ||
+            data.message ||
+            `Image prediction failed (HTTP ${res.status}).`
+          );
+        }
+
+        return data;
+      } catch (err) {
+        lastError = err;
+      }
     }
 
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(
-        data.detail ||
-        data.message ||
-        "Image prediction failed."
-      );
-    }
-
-    return data;
+    throw lastError || new Error("Image prediction failed. Please try again.");
   },
 
   // =========================================================
@@ -324,7 +353,6 @@ export const api = {
 
     return data;
   },
-
 
   analyzeWebsite: async (url) => {
     const res = await fetch(
