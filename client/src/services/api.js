@@ -1,8 +1,28 @@
 // Centralized API client for TrustGuard AI
 
-const BASE_URL =
-  import.meta.env.VITE_API_URL ||
-  "https://deepfake-detector-trustguard-ai-1.onrender.com";
+const DEPLOYED_BACKEND_URL = "https://trustguard-ai-v2-backend.onrender.com";
+
+const getBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl && typeof envUrl === "string" && envUrl.trim() !== "") {
+    const isLocal = typeof window !== "undefined" &&
+      (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+    if (isLocal || (!envUrl.includes("127.0.0.1") && !envUrl.includes("localhost"))) {
+      return envUrl.replace(/\/+$/, "");
+    }
+  }
+
+  if (typeof window !== "undefined") {
+    const hostname = window.location.hostname;
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
+      return "http://127.0.0.1:8000";
+    }
+  }
+
+  return DEPLOYED_BACKEND_URL;
+};
+
+const BASE_URL = getBaseUrl();
 
 const getHeaders = (isJson = true) => {
   const headers = {};
@@ -21,51 +41,72 @@ const getHeaders = (isJson = true) => {
 };
 
 export const api = {
+  BASE_URL: BASE_URL,
 
   // =========================================================
   // AUTHENTICATION
   // =========================================================
 
   login: async (email, password) => {
-    const res = await fetch(
+    const candidateEndpoints = [
       BASE_URL + "/api/auth/login",
-      {
-        method: "POST",
-        headers: getHeaders(true),
-        body: JSON.stringify({
-          email: email,
-          password: password
-        })
-      }
-    );
+      BASE_URL + "/auth/login",
+      DEPLOYED_BACKEND_URL + "/api/auth/login",
+    ];
+    const endpoints = [...new Set(candidateEndpoints)];
 
-    const data = await res.json();
+    let lastError = null;
 
-    if (!res.ok) {
-      throw new Error(
-        data.detail ||
-        data.message ||
-        "Login failed."
-      );
-    }
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: getHeaders(true),
+          body: JSON.stringify({
+            email: email,
+            password: password,
+          }),
+        });
 
-    if (data.token) {
-      localStorage.setItem(
-        "trustguard_token",
-        data.token
-      );
-
-      localStorage.setItem(
-        "trustguard_user",
-        JSON.stringify(
-          data.user || {
-            email: email
+        const contentType = res.headers.get("content-type") || "";
+        let data = {};
+        if (contentType.includes("application/json")) {
+          data = await res.json();
+        } else {
+          const text = await res.text();
+          try {
+            data = JSON.parse(text);
+          } catch {
+            data = { detail: res.ok ? "Success" : text || `HTTP ${res.status}` };
           }
-        )
-      );
+        }
+
+        if (!res.ok) {
+          if (res.status === 404 && url !== endpoints[endpoints.length - 1]) {
+            continue;
+          }
+          throw new Error(
+            data.detail ||
+            data.message ||
+            (res.status === 401 ? "Invalid email or password." : "Login failed.")
+          );
+        }
+
+        if (data.token) {
+          localStorage.setItem("trustguard_token", data.token);
+          localStorage.setItem(
+            "trustguard_user",
+            JSON.stringify(data.user || { email: email })
+          );
+        }
+
+        return data;
+      } catch (err) {
+        lastError = err;
+      }
     }
 
-    return data;
+    throw lastError || new Error("Login failed. Please check your credentials.");
   },
 
   register: async (
@@ -74,33 +115,61 @@ export const api = {
     password,
     confirmPassword
   ) => {
-    const res = await fetch(
+    const candidateEndpoints = [
       BASE_URL + "/api/auth/register",
-      {
-        method: "POST",
-        headers: getHeaders(true),
-        body: JSON.stringify({
-          full_name: fullName,
-          fullName: fullName,
-          email: email,
-          password: password,
-          confirm_password: confirmPassword,
-          confirmPassword: confirmPassword
-        })
+      BASE_URL + "/auth/register",
+      DEPLOYED_BACKEND_URL + "/api/auth/register",
+    ];
+    const endpoints = [...new Set(candidateEndpoints)];
+
+    let lastError = null;
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: getHeaders(true),
+          body: JSON.stringify({
+            full_name: fullName,
+            fullName: fullName,
+            email: email,
+            password: password,
+            confirm_password: confirmPassword,
+            confirmPassword: confirmPassword,
+          }),
+        });
+
+        const contentType = res.headers.get("content-type") || "";
+        let data = {};
+        if (contentType.includes("application/json")) {
+          data = await res.json();
+        } else {
+          const text = await res.text();
+          try {
+            data = JSON.parse(text);
+          } catch {
+            data = { detail: res.ok ? "Success" : text || `HTTP ${res.status}` };
+          }
+        }
+
+        if (!res.ok) {
+          if (res.status === 404 && url !== endpoints[endpoints.length - 1]) {
+            continue;
+          }
+          throw new Error(
+            data.detail ||
+            data.message ||
+            (res.status === 404 ? "Registration service not reachable." : "Registration failed.")
+          );
+        }
+
+        return data;
+      } catch (err) {
+        lastError = err;
       }
-    );
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(
-        data.detail ||
-        data.message ||
-        "Registration failed."
-      );
     }
 
-    return data;
+    throw lastError || new Error("Registration failed. Please try again.");
   },
 
   // =========================================================
@@ -109,16 +178,27 @@ export const api = {
 
   predictImage: async (file) => {
     const formData = new FormData();
-
     formData.append("file", file);
 
-    const res = await fetch(
-      BASE_URL + "/api/predict/image",
+    let res = await fetch(
+      BASE_URL + "/predict",
       {
         method: "POST",
         body: formData
       }
     );
+
+    if (!res.ok && res.status === 404) {
+      const fallbackFormData = new FormData();
+      fallbackFormData.append("file", file);
+      res = await fetch(
+        BASE_URL + "/api/predict/image",
+        {
+          method: "POST",
+          body: fallbackFormData
+        }
+      );
+    }
 
     const data = await res.json();
 
@@ -134,8 +214,117 @@ export const api = {
   },
 
   // =========================================================
-  // WEBSITE ANALYSIS
+  // VIDEO PREDICTION (FRAME-LEVEL TIMELINE)
   // =========================================================
+
+  predictVideo: async (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch(
+      BASE_URL + "/api/predict/video",
+      {
+        method: "POST",
+        body: formData
+      }
+    );
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(
+        data.detail ||
+        data.message ||
+        "Video verification failed."
+      );
+    }
+
+    return data;
+  },
+
+  // =========================================================
+  // AUDIO PREDICTION (VOICE-CLONING / SYNTHETIC SPEECH)
+  // =========================================================
+
+  predictAudio: async (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch(
+      BASE_URL + "/api/predict/audio",
+      {
+        method: "POST",
+        body: formData
+      }
+    );
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(
+        data.detail ||
+        data.message ||
+        "Audio authenticity verification failed."
+      );
+    }
+
+    return data;
+  },
+
+  // =========================================================
+  // ERROR LEVEL ANALYSIS (FORENSICS)
+  // =========================================================
+
+  runForensicsELA: async (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch(
+      BASE_URL + "/api/forensics/ela",
+      {
+        method: "POST",
+        body: formData
+      }
+    );
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(
+        data.detail ||
+        data.message ||
+        "Forensic ELA analysis failed."
+      );
+    }
+
+    return data;
+  },
+
+  // =========================================================
+  // TRANSPARENCY & DATASET STATS
+  // =========================================================
+
+  getTransparencyStats: async () => {
+    const res = await fetch(
+      BASE_URL + "/api/transparency/stats",
+      {
+        headers: getHeaders(false)
+      }
+    );
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(
+        data.detail ||
+        data.message ||
+        "Unable to fetch transparency statistics."
+      );
+    }
+
+    return data;
+  },
+
 
   analyzeWebsite: async (url) => {
     const res = await fetch(
@@ -443,6 +632,27 @@ export const api = {
     headline,
     text
   ) => {
+    try {
+      const res = await fetch(
+        BASE_URL + "/api/analyze/news",
+        {
+          method: "POST",
+          headers: getHeaders(true),
+          body: JSON.stringify({
+            headline: headline,
+            content: text,
+            text: text
+          })
+        }
+      );
+
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (error) {
+      // Fallback to message route if news route is unavailable
+    }
+
     const res = await fetch(
       BASE_URL + "/api/analyze/message",
       {
